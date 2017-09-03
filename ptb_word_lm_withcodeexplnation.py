@@ -115,6 +115,9 @@ class PTBModel(object):
     size = config.hidden_size
     vocab_size = config.vocab_size
 
+    # input_.input_data shape ==> (batch_size, num_steps)
+    # 這個inputs shape的正確了解很重要, 之前一直卡住
+    # inputs shape ==> (batch_size, num_steps, size)
     with tf.device("/cpu:0"):
       embedding = tf.get_variable(
           "embedding", [vocab_size, size], dtype=data_type())
@@ -123,6 +126,15 @@ class PTBModel(object):
     if is_training and config.keep_prob < 1:
       inputs = tf.nn.dropout(inputs, config.keep_prob)
 
+    
+    # 根據config 會建立不同的rnn graph, 這個很重要
+    # 之前一直卡到 training時, state size= batch_size* hidden-cells_size
+    # 可是要做predict時 batch_size是1 ,根本不能用traing完的model去predict
+    # 看了很久才發現traing和predict的 graph 可以長不一樣(因為batch_size)
+    # 可是參數(weight parameter)是共用的, 跟我之前DNN的經驗不一樣
+    # 這個要特別注意
+    
+    # output shape ==> (batch_size, num_steps, size)
     output, state = self._build_rnn_graph(inputs, config, is_training)
 
     softmax_w = tf.get_variable(
