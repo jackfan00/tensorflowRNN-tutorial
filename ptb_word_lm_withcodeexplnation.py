@@ -134,12 +134,14 @@ class PTBModel(object):
     # 可是參數(weight parameter)是共用的, 跟我之前DNN的經驗不一樣
     # 這個要特別注意
     
-    # output shape ==> (batch_size, num_steps, size)
+    # 經過 build_rnn_grapg, output shape ==> (batch_size * num_steps, size)
     output, state = self._build_rnn_graph(inputs, config, is_training)
 
     softmax_w = tf.get_variable(
         "softmax_w", [size, vocab_size], dtype=data_type())
     softmax_b = tf.get_variable("softmax_b", [vocab_size], dtype=data_type())
+    
+    # logits shape ==> (batch_size * num_steps, vocab_size)
     logits = tf.nn.xw_plus_b(output, softmax_w, softmax_b)
      # Reshape logits to be a 3-D tensor for sequence loss
     logits = tf.reshape(logits, [self.batch_size, self.num_steps, vocab_size])
@@ -225,6 +227,8 @@ class PTBModel(object):
     cell = tf.contrib.rnn.MultiRNNCell(
         [cell for _ in range(config.num_layers)], state_is_tuple=True)
 
+    # 注意: 不同的batch_size產生不同size的initial_state
+    # 因為traing 時用mini-batch, predict時 batch_size=1, 所以兩者不同
     self._initial_state = cell.zero_state(config.batch_size, data_type())
     state = self._initial_state
     # Simplified version of tensorflow_models/tutorials/rnn/rnn.py's rnn().
